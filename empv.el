@@ -3978,14 +3978,14 @@ learn more.  Supposed to be used like this:
    '(defhydra
      empv-hydra
      (:color pink :hint nil)
-     "EMPV Hydra: _q: _quit"
+     "EMPV Hydra: _q _quit"
      ("o" #'empv-play-or-enqueue "play or enqueue" :column "Play")
      ("f" #'empv-play-file "play file" :column "Play")
      ("d" #'empv-play-directory "play directory" :column "Play")
      ("v" #'empv-play-video "play video" :column "Play")
      ("a" #'empv-play-audio "play audio" :column "Play")
-     ("-" #'empv-exit "kill" :column "Play" :exit t)
-     ("K" #'empv-save-and-exit "save and kill" :column "Play" :exit t)
+     ("-" #'empv-exit "exit" :column "Play" :exit t)
+     ("K" #'empv-save-and-exit "save and exit" :column "Play" :exit t)
      ("[" #'empv-playback-speed-down "playback speed down" :column "Playback")
      ("]" #'empv-playback-speed-up "playback speed up" :column "Playback")
      ("0" #'empv-volume-up "volume up" :column "Playback")
