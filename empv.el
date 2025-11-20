@@ -144,8 +144,7 @@ For example:
   :type '(alist :key-type string :value-type string)
   :group 'empv)
 
-(defcustom empv-youtube-use-tabulated-results
-  nil
+(defcustom empv-youtube-use-tabulated-results nil
   "Show YouTube results in a tabulated buffer with thumbnails if not nil.
 Otherwise simply use `completing-read'.  You can still use
 `empv-youtube-tabulated' command if this variable is nil."
@@ -869,7 +868,9 @@ IT can be a symbol or string.
                          :false-object
                          :json-false
                          :null-object result)
-    (error (empv--dbg "Error while reading JSON :: %s" result) nil)))
+    (error
+     (empv--dbg "Error while reading JSON :: %s" result)
+     nil)))
 
 (defvar empv--request-id 0)
 (defun empv--new-request-id ()
@@ -1133,12 +1134,18 @@ observer and the callback is called everytime that given event
 happens."
   (empv--run
    (let* ((request-id (empv--new-request-id))
-          (msg (json-encode
-                (if event?
-                    `((command . (,(seq-first command) ,(string-to-number request-id) ,@(seq-rest command)))
-                      (request_id . ,(string-to-number request-id)))
-                  `((command . ,command)
-                    (request_id . ,(string-to-number request-id)))))))
+          (msg
+           (json-encode
+            (if event?
+                `((command
+                   .
+                   (,(seq-first command)
+                    ,(string-to-number request-id)
+                    ,@
+                    (seq-rest command)))
+                  (request_id . ,(string-to-number request-id)))
+              `((command . ,command)
+                (request_id . ,(string-to-number request-id)))))))
      (when callback
        (map-put!
         empv--callback-table request-id (list :fn callback :event? event?)))
@@ -1254,26 +1261,34 @@ events: https://mpv.io/manual/stable/#list-of-events"
 ;;;; Some callbacks
 
 (defun empv--set-player-state (&rest _)
-  (cl-flet ((run-hooks
-             ()
-             (seq-each (lambda (x) (funcall x empv-player-state)) empv-player-state-changed-hook)))
-    (if (empv--running?)
-        (empv--let-properties '(paused-for-cache pause playlist-pos)
-          (setq empv-player-state
-                (cond
-                 ((< .playlist-pos 0) 'stopped)
-                 ((eq .paused-for-cache t) 'caching)
-                 ((eq .pause t) 'paused)
-                 (t 'playing)))
-          (run-hooks))
-      (setq empv-player-state 'stopped)
-      (run-hooks))))
+  (cl-flet
+   ((run-hooks
+     ()
+     (seq-each
+      (lambda (x) (funcall x empv-player-state))
+      empv-player-state-changed-hook)))
+   (if (empv--running?)
+       (empv--let-properties '(paused-for-cache pause playlist-pos)
+         (setq empv-player-state
+               (cond
+                ((< .playlist-pos 0)
+                 'stopped)
+                ((eq .paused-for-cache t)
+                 'caching)
+                ((eq .pause t)
+                 'paused)
+                (t
+                 'playing)))
+         (run-hooks))
+     (setq empv-player-state 'stopped)
+     (run-hooks))))
 
 (defun empv--set-media-title (title)
   (if (empv--running?)
       (setq empv-media-title title)
     (setq empv-media-title nil))
-  (seq-each (lambda (x) (funcall x empv-media-title)) empv-media-title-changed-hook))
+  (seq-each
+   (lambda (x) (funcall x empv-media-title)) empv-media-title-changed-hook))
 
 (defun empv--metadata-get (alist main fallback)
   "Get MAIN from ALIST, if it's nill get FALLBACK from ALIST."
@@ -1305,11 +1320,17 @@ PATH is the path of the media file."
   (empv--dbg "handle-metadata-change <> %s" data)
   (empv--let-properties '(media-title path chapter chapter-metadata metadata)
     (when .path
-      (let ((title (string-trim (empv--create-media-summary-for-notification .metadata .path .media-title))))
+      (let ((title
+             (string-trim
+              (empv--create-media-summary-for-notification .metadata .path
+                                                           .media-title))))
         (puthash (empv--clean-uri .path) title empv--media-title-cache)
-        (empv--set-media-title (concat title (if (and .chapter (> .chapter -1))
-                                                 (format " (%s)" (alist-get 'title .chapter-metadata))
-                                               "")))
+        (empv--set-media-title
+         (concat
+          title
+          (if (and .chapter (> .chapter -1))
+              (format " (%s)" (alist-get 'title .chapter-metadata))
+            "")))
         (empv--display-event "%s" empv-media-title)))))
 
 ;;;; Essential functions
@@ -1320,9 +1341,15 @@ PATH is the path of the media file."
 URI might be a string or a list of strings."
   (interactive "sEnter an URI to play: ")
   (empv--select-action _
-    "Play" → (empv-play uri)
-    "Enqueue last" → (empv-enqueue uri)
-    "Enqueue next" → (empv-enqueue-next uri)))
+    "Play"
+    →
+    (empv-play uri)
+    "Enqueue last"
+    →
+    (empv-enqueue uri)
+    "Enqueue next"
+    →
+    (empv-enqueue-next uri)))
 
 (defun empv-start (&rest uris)
   "Start mpv using `empv-mpv-command' with given URIS."
@@ -1534,7 +1561,8 @@ see `empv-base-directory'."
 (defun empv-toggle ()
   "Toggle the playback."
   (interactive)
-  (empv--transform-property 'pause
+  (empv--transform-property
+      'pause
     (lambda (it)
       (pcase it
         ('t :json-false)
@@ -1634,12 +1662,14 @@ see `empv-base-directory'."
 You can press \"_\" to hide it again when you are focused on
 MPV."
   (interactive)
-  (empv--transform-property 'video
+  (empv--transform-property
+      'video
     (lambda (it)
       (pcase it
         (1 0)
-        (_ (empv--cmd 'set_property '(force-window immediate))
-           1))))
+        (_
+         (empv--cmd 'set_property '(force-window immediate))
+         1))))
   (empv--cmd 'set_property '(force-window no)))
 
 ;;;###autoload
@@ -2226,18 +2256,28 @@ resulting object is returned."
                      empv-invidious-request-headers
                      (empv--invidious-host? url))
             empv-invidious-request-headers))
-         (url-request-extra-headers
-          (append custom-headers default-headers))
+         (url-request-extra-headers (append custom-headers default-headers))
          (handler
           (lambda (status)
-            (empv--dbg "empv--request(%s, %s) → error: %s" url params (plist-get status :error))
-            (let ((headers (progn
-                             (goto-char (point-min))
-                             (re-search-forward "\n\n" nil t)
-                             (buffer-substring-no-properties (point-min) (point))))
-                  (body (decode-coding-string
-                         (buffer-substring-no-properties (point) (point-max)) 'utf-8)))
-              (empv--dbg "empv--request(%s, %s) → headers: %s, body: %s" url params headers body)
+            (empv--dbg "empv--request(%s, %s) → error: %s"
+                       url
+                       params
+                       (plist-get status :error))
+            (let ((headers
+                   (progn
+                     (goto-char (point-min))
+                     (re-search-forward "\n\n" nil t)
+                     (buffer-substring-no-properties (point-min) (point))))
+                  (body
+                   (decode-coding-string
+                    (buffer-substring-no-properties
+                     (point) (point-max))
+                    'utf-8)))
+              (empv--dbg "empv--request(%s, %s) → headers: %s, body: %s"
+                         url
+                         params
+                         headers
+                         body)
               (kill-buffer)
               (let ((parsed (empv--read-result body)))
                 (if callback
@@ -2609,26 +2649,35 @@ buffer."
   (seq-into
    (seq-map
     (lambda (col)
-      (let-alist (cdr it)
-        (propertize
-         (pcase (nth 3 col)
-           ;; I truncate the title (and `other' below) manually because
-           ;; when tabulated-list-mode does it, some columns gets
-           ;; misaligned for some reason
-           ((and (pred functionp) fn) (funcall fn (cdr it)))
-           ('.title (propertize
-                     (s-truncate (- (nth 1 col) 1) .title "…")
-                     'help-echo .title))
-           ('.lengthSeconds (empv--format-yt-duration .lengthSeconds))
-           ('.viewCount (empv--format-yt-views .viewCount))
-           ('.autoGenerated (if (eq .autoGenerated :json-false) "No" "Yes"))
-           ('.authorVerified (if (eq .authorVerified :json-false) "No" "Yes"))
-           ((pred (equal empv-thumbnail-placeholder)) (propertize empv-thumbnail-placeholder 'help-echo .title))
-           (other (let ((value (or (empv--alist-path-get other (cdr it)) "N/A")))
-                    (propertize
-                     (s-truncate (- (nth 1 col) 1) (format "%s" value)  "…")
-                     'help-echo value))))
-         'empv-youtube-item it)))
+      (let-alist
+       (cdr it)
+       (propertize
+        (pcase (nth 3 col)
+          ;; I truncate the title (and `other' below) manually because
+          ;; when tabulated-list-mode does it, some columns gets
+          ;; misaligned for some reason
+          ((and (pred functionp) fn) (funcall fn (cdr it)))
+          ('.title
+           (propertize (s-truncate (- (nth 1 col) 1) .title "…")
+                       'help-echo .title))
+          ('.lengthSeconds (empv--format-yt-duration .lengthSeconds))
+          ('.viewCount (empv--format-yt-views .viewCount))
+          ('.autoGenerated
+           (if (eq .autoGenerated :json-false)
+               "No"
+             "Yes"))
+          ('.authorVerified
+           (if (eq .authorVerified :json-false)
+               "No"
+             "Yes"))
+          ((pred (equal empv-thumbnail-placeholder))
+           (propertize empv-thumbnail-placeholder 'help-echo .title))
+          (other
+           (let ((value
+                  (or (empv--alist-path-get other (cdr it)) "N/A")))
+             (propertize (s-truncate (- (nth 1 col) 1) (format "%s" value) "…")
+                         'help-echo value))))
+        'empv-youtube-item it)))
     headers)
    'vector))
 
@@ -2685,31 +2734,37 @@ buffer."
     (seq-do-indexed
      (lambda (video index)
        (let* ((info (cdr video))
-              (id (or (alist-get 'videoId info)
-                      (alist-get 'playlistId info)
-                      (alist-get 'authorId info)))
-              (filename (format
-                         (expand-file-name "~/.cache/empv_%s_%s.jpg")
-                         id
-                         empv-youtube-thumbnail-quality))
-              (thumb-url (or
-                          (alist-get 'playlistThumbnail info)
-                          (empv--youtube-find-reasonable-thumbnail (alist-get 'videoThumbnails info))
-                          (empv--youtube-find-reasonable-thumbnail (alist-get 'authorThumbnails info))))
-              (args (seq-filter
-                     #'identity
-                     `(,(if (file-exists-p filename)
-                            "printf" "curl")
-                       ,(when empv-allow-insecure-connections
-                          "--insecure")
-                       ,@(when (and empv-invidious-request-headers (empv--invidious-host? thumb-url))
-                           (seq-mapcat
-                            (lambda (header) (list "--header" (format "%s: %s" (car header) (cdr header))))
-                            empv-invidious-request-headers))
-                       "-L"
-                       "-o"
-                       ,filename
-                       ,thumb-url))))
+              (id
+               (or (alist-get 'videoId info)
+                   (alist-get 'playlistId info)
+                   (alist-get 'authorId info)))
+              (filename
+               (format (expand-file-name "~/.cache/empv_%s_%s.jpg")
+                       id
+                       empv-youtube-thumbnail-quality))
+              (thumb-url
+               (or (alist-get 'playlistThumbnail info)
+                   (empv--youtube-find-reasonable-thumbnail
+                    (alist-get 'videoThumbnails info))
+                   (empv--youtube-find-reasonable-thumbnail
+                    (alist-get 'authorThumbnails info))))
+              (args
+               (seq-filter
+                #'identity
+                `(,(if (file-exists-p filename)
+                       "printf"
+                     "curl")
+                  ,(when empv-allow-insecure-connections
+                     "--insecure")
+                  ,@
+                  (when (and empv-invidious-request-headers
+                             (empv--invidious-host? thumb-url))
+                    (seq-mapcat
+                     (lambda (header)
+                       (list
+                        "--header" (format "%s: %s" (car header) (cdr header))))
+                     empv-invidious-request-headers))
+                  "-L" "-o" ,filename ,thumb-url))))
          (empv--dbg "Dowloading thumbnail using: '%s'" args)
          (set-process-sentinel
           (apply #'start-process
@@ -2987,8 +3042,9 @@ nicely formatted buffer."
 
 (defun empv--invidious-host? (url)
   "Check if given URL host is same as `empv-invidious-instance's host."
-  (equal (url-host (url-generic-parse-url empv-invidious-instance))
-         (url-host (url-generic-parse-url url))))
+  (equal
+   (url-host (url-generic-parse-url empv-invidious-instance))
+   (url-host (url-generic-parse-url url))))
 
 (defun empv--youtube-search (term type page callback)
   "Search TERM in YouTube.
@@ -2998,20 +3054,15 @@ finishes."
   (setq type (symbol-name (or type 'video)))
   (empv--request
    (format "%s/search" empv-invidious-instance)
-   `(("q" . ,term)
-     ("page" . ,(number-to-string page))
-     ("type" . ,type))
+   `(("q" . ,term) ("page" . ,(number-to-string page)) ("type" . ,type))
    (lambda (results)
      ;; For some reason, even if we set the type to "video", "channel"
      ;; type results may appear in the returned data from
      ;; Invidious. Filtering it out here so that it does not interfere
      ;; with tabulated-list building logic etc..
-     (funcall
-      callback
-      (seq-filter
-       (lambda (it)
-         (equal type (alist-get 'type it type)))
-       results)))))
+     (funcall callback
+              (seq-filter
+               (lambda (it) (equal type (alist-get 'type it type))) results)))))
 
 (defun empv--youtube-channel-videos (channel-id sort-by continuation callback)
   "Get videos for CHANNEL-ID sorted by SORT-BY.
@@ -3138,74 +3189,81 @@ them so that responses are easier to work with."
          #'s-blank?
          (list empv-subsonic-url empv-subsonic-username empv-subsonic-password))
     (user-error "Please configure Subsonic first"))
-  (let* ((callback (when-let* ((last (empv--seq-last rest))
-                               (_ (functionp last)))
-                     last))
-         (params (if callback
-                     (ignore-errors (empv--seq-init rest))
-                   rest))
-         (handler
-          (lambda (result)
-            ;; I know this is horrible but Subsonic responses are much worse.
-            (let-alist result
-              (unless (equal "ok" .subsonic-response.status)
-                (empv--dbg "empv--subsonic-request failed :: endpoint=%s, rest=%s, response=%s" endpoint rest result)
-                (error "Request to subsonic failed"))
-              (let ((result (or
-                             (alist-get
-                              (thread-last
-                                endpoint
-                                (s-split "\\.")
-                                (car)
-                                (s-chop-prefix "get")
-                                (s-lower-camel-case)
-                                (intern))
-                              .subsonic-response)
-                             ;; FIXME: This does not look good
-                             ;; This is the only non-conforming result object.
-                             .subsonic-response.searchResult3)))
-                (let ((info '())
-                      (results '())
-                      (result-fields '(artist album song playlist genre)))
-                  ;; TODO: Document what is going on here
-                  (seq-do
-                   (lambda (key)
-                     (let ((val (alist-get key result)))
-                       (if (listp val)
-                           (setq results
-                                 (append results
-                                         (seq-map
-                                          (lambda (x)
-                                            (thread-first
-                                              x
-                                              (map-insert 'kind key)
-                                              (map-insert 'type 'subsonic)))
-                                          val)))
-                         (setq info (map-insert info key val)))))
-                   result-fields)
-                  (seq-do
-                   (lambda (key)
-                     (setq info (map-insert info key (alist-get key result))))
-                   (seq-difference (map-keys result) result-fields))
-                  ;; Also handle /getIndexes and /getArtists responses and flatten them
-                  (when-let* ((index (alist-get 'index result)))
-                    (setq
-                     results
-                     (seq-mapcat
-                      (lambda (index)
-                        (let ((index-name (alist-get 'name index)))
-                          (seq-map
-                           (lambda (val)
-                             (thread-first
-                               val
-                               (map-insert 'indexName index-name)
-                               (map-insert 'kind 'artist)))
-                           (alist-get 'artist index))))
-                      index)))
-                  (let ((all `(,@info (results . ,results))))
-                    (if callback
-                        (funcall callback all)
-                      all))))))))
+  (let*
+      ((callback
+        (when-let* ((last (empv--seq-last rest))
+                    (_ (functionp last)))
+          last))
+       (params
+        (if callback
+            (ignore-errors
+              (empv--seq-init rest))
+          rest))
+       (handler
+        (lambda (result)
+          ;; I know this is horrible but Subsonic responses are much worse.
+          (let-alist
+           result
+           (unless (equal "ok" .subsonic-response.status)
+             (empv--dbg
+              "empv--subsonic-request failed :: endpoint=%s, rest=%s, response=%s"
+              endpoint rest result)
+             (error "Request to subsonic failed"))
+           (let ((result
+                  (or (alist-get
+                       (thread-last
+                        endpoint
+                        (s-split "\\.")
+                        (car)
+                        (s-chop-prefix "get")
+                        (s-lower-camel-case)
+                        (intern))
+                       .subsonic-response)
+                      ;; FIXME: This does not look good
+                      ;; This is the only non-conforming result object.
+                      .subsonic-response.searchResult3)))
+             (let ((info '())
+                   (results '())
+                   (result-fields '(artist album song playlist genre)))
+               ;; TODO: Document what is going on here
+               (seq-do
+                (lambda (key)
+                  (let ((val (alist-get key result)))
+                    (if (listp val)
+                        (setq results
+                              (append
+                               results
+                               (seq-map
+                                (lambda (x)
+                                  (thread-first
+                                   x
+                                   (map-insert 'kind key)
+                                   (map-insert 'type 'subsonic)))
+                                val)))
+                      (setq info (map-insert info key val)))))
+                result-fields)
+               (seq-do
+                (lambda (key)
+                  (setq info (map-insert info key (alist-get key result))))
+                (seq-difference (map-keys result) result-fields))
+               ;; Also handle /getIndexes and /getArtists responses and flatten them
+               (when-let* ((index (alist-get 'index result)))
+                 (setq results
+                       (seq-mapcat
+                        (lambda (index)
+                          (let ((index-name (alist-get 'name index)))
+                            (seq-map
+                             (lambda (val)
+                               (thread-first
+                                val
+                                (map-insert 'indexName index-name)
+                                (map-insert 'kind 'artist)))
+                             (alist-get 'artist index))))
+                        index)))
+               (let ((all `(,@info (results . ,results))))
+                 (if callback
+                     (funcall callback all)
+                   all))))))))
     (if callback
         (empv--request (apply #'empv--subsonic-build-url endpoint params)
                        nil
@@ -3572,11 +3630,12 @@ To make this behavior permanant, add the following to your init file:
 
 Also see `empv-reset-playback-speed-on-quit' for resetting playback
 speed to 1 after quitting the video view."
-  (empv--cmd
-   'keybind `("q" ,(format "set pause yes; %s set force-window no; cycle video;"
-                           (if empv-reset-playback-speed-on-quit
-                               "set speed 1;"
-                             "")))))
+  (empv--cmd 'keybind
+             `("q"
+               ,(format "set pause yes; %s set force-window no; cycle video;"
+                        (if empv-reset-playback-speed-on-quit
+                            "set speed 1;"
+                          "")))))
 
 (defvar org-link-any-re)
 (declare-function org-element-property "org")
@@ -3699,7 +3758,8 @@ Also see `empv-search-prefix'."
           it))
        (empv--request-raw-sync)
        (string-replace "
-" "")
+"
+                       "")
        ;; Replace newlines so that regexes can work
        (string-replace "\n" "<newline>")
        ;; FIXME: The resulting string may be too long and regexes may
@@ -3731,7 +3791,8 @@ Also see `empv-search-prefix'."
           ("\\" . "")
           ("<newline>" . "\n")
           ("
-" . "\n")
+"
+           . "\n")
           ("\"" . "")
           ("&quot;" . "\"")
           ("&#x27;" . "'")
@@ -3790,7 +3851,12 @@ lyrics with the buffers content."
     (user-error "File not found: '%s'" file))
   (let ((lyrics-file (make-temp-file "empv-lyrics" nil ".txt" lyrics)))
     (set-process-filter
-     (start-process " *empv-eyeD3*" nil "eyeD3" "--encoding" "utf8" "--add-lyrics" lyrics-file file)
+     (start-process " *empv-eyeD3*" nil "eyeD3"
+                    "--encoding"
+                    "utf8"
+                    "--add-lyrics"
+                    lyrics-file
+                    file)
      (lambda (proc out)
        (empv--dbg "*eyeD3* output: %s" out)
        (if (eq (process-exit-status proc) 0)
@@ -4012,7 +4078,7 @@ learn more.  Supposed to be used like this:
    '(defhydra
      empv-hydra
      (:color pink :hint nil)
-     "EMPV Hydra: _q _quit"
+     "EMPV Hydra: _q: quit"
      ("o" #'empv-play-or-enqueue "play or enqueue" :column "Play")
      ("f" #'empv-play-file "play file" :column "Play")
      ("d" #'empv-play-directory "play directory" :column "Play")
